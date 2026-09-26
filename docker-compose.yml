@@ -100,6 +100,7 @@ services:
     volumes:
       - ./jobs:/opt/spark-jobs
       - ./data/raw:/opt/spark-data/raw:ro
+      - ./jars/iceberg-spark-runtime-3.5_2.12-1.6.1.jar:/opt/bitnami/spark/jars/iceberg-spark-runtime-3.5_2.12-1.6.1.jar:ro
 
   spark-worker:
     image: bitnamilegacy/spark:3.5
@@ -107,14 +108,37 @@ services:
     environment:
       - SPARK_MODE=worker
       - SPARK_MASTER_URL=spark://spark-master:7077
-      - SPARK_WORKER_MEMORY=2G
-      - SPARK_WORKER_CORES=2
+      - SPARK_WORKER_MEMORY=4G
+      - SPARK_WORKER_CORES=6
     depends_on:
       - spark-master
     volumes:
       - ./jobs:/opt/spark-jobs
       - ./data/raw:/opt/spark-data/raw:ro
+      - ./jars/iceberg-spark-runtime-3.5_2.12-1.6.1.jar:/opt/bitnami/spark/jars/iceberg-spark-runtime-3.5_2.12-1.6.1.jar:ro
+
+  # ---- Spark Thrift server: a JDBC endpoint so DBeaver (or any SQL tool) can query the lake ----
+  spark-thrift:
+    image: bitnamilegacy/spark:3.5
+    container_name: cecl-spark-thrift
+    user: root
+    depends_on:
+      - spark-master
+      - spark-worker
+      - minio
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+    ports:
+      - "10000:10000"   # JDBC (HiveServer2 protocol)
+    working_dir: /opt/thrift
+    volumes:
+      - thrift_meta:/opt/thrift    # saved views/databases survive container recreation
+      - ./jobs:/opt/spark-jobs
+      - ./jars/iceberg-spark-runtime-3.5_2.12-1.6.1.jar:/opt/bitnami/spark/jars/iceberg-spark-runtime-3.5_2.12-1.6.1.jar:ro
+    command: ["bash", "/opt/spark-jobs/spark_thrift.sh"]
 
 volumes:
+  thrift_meta:
   minio_data:
   postgres_data:

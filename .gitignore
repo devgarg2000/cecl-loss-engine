@@ -1,6 +1,8 @@
 .env
 .venv/
-.claude/
+.claude/*
+!.claude/rules/
+jars/*.jar
 .ipynb_checkpoints/
 data/
 __pycache__/
