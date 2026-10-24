@@ -10,9 +10,8 @@ Agreed rules (see docs/concepts-qa.md and the step 4 decisions):
 """
 from pyspark.sql import Column, functions as F
 
-CREDIT_BANDS = ["a: <620", "b: 620-679", "c: 680-739", "d: 740+"]
-LTV_BANDS = ["a: <=60", "b: 61-80", "c: 81-90", "d: >90"]
-AGE_BANDS = ["a: 0-11", "b: 12-35", "c: 36+"]
+# the labels and cut-offs live in segment_bands.py (plain Python); they are re-exported here for the jobs that import them
+from segment_bands import AGE_BANDS, CREDIT_BANDS, INCENTIVE_BUCKETS, INCENTIVE_CUTOFFS, LTV_BANDS  # noqa: F401
 
 
 def credit_band(credit_score: Column) -> Column:
@@ -29,6 +28,16 @@ def ltv_band(ltv: Column) -> Column:
              .when(ltv <= 90, LTV_BANDS[2])
              .when(ltv > 90, LTV_BANDS[3])
              .otherwise(LTV_BANDS[1]))             # unknown -> most common band
+
+
+def incentive_bucket(rate_incentive: Column) -> Column:
+    """Rate gap in percentage points: the loan's rate minus the prevailing market rate (+ = above market)."""
+    return (F.when(rate_incentive.isNull(), "unknown")
+             .when(rate_incentive < INCENTIVE_CUTOFFS[0], INCENTIVE_BUCKETS[0])
+             .when(rate_incentive < INCENTIVE_CUTOFFS[1], INCENTIVE_BUCKETS[1])
+             .when(rate_incentive < INCENTIVE_CUTOFFS[2], INCENTIVE_BUCKETS[2])
+             .when(rate_incentive < INCENTIVE_CUTOFFS[3], INCENTIVE_BUCKETS[3])
+             .otherwise(INCENTIVE_BUCKETS[4]))
 
 
 def age_band(loan_age: Column) -> Column:

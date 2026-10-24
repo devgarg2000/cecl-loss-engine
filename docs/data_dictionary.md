@@ -39,7 +39,7 @@ The guide's column tables do not match the files we downloaded. **The files win.
 | orig columns | 32 | **31**: `SERVICER NAME` (guide #25) is absent |
 | perf columns | 32 | **35**: `mi_cancellation_indicator` and `servicer_name` follow the guide's 32 (the guide puts both in orig), then `undocumented_amount` |
 | `undocumented_amount` (perf #35) | not described | see "The undocumented 35th performance column" below |
-| delinquency status `XX` | not described | appears only in report months 202510 and later; meaning unknown |
+| delinquency status `XX` | not described | appears only in report months 202510 and later, and **only on a loan's first month in the data** (loan age 0). Before 202510 that month was `00`. Inferred from the data (469,185 rows, all with no previous month; 99.1% are current the next month); not confirmed by Freddie. Silver leaves `delinq_months` empty for it. |
 | `payment_deferral_flag` | `Y` / `P` | data holds `P` / `C` |
 | `mi_cancellation_indicator_orig` | `Y` / `N` / `7` / `9` | constant `9999`: unused placeholder |
 
@@ -147,6 +147,27 @@ If several events happen in the same month, the higher-priority one is reported:
 - Empty text fields are already null in bronze.
 - Bronze keeps all values exactly as delivered, as text. Only silver changes types.
 
+## Gold tables (step 4, Iceberg, catalog `lake`, namespace `gold`)
+
+Built from silver by the jobs in `jobs/`. All use the 48 segments from `jobs/segments.py`
+(credit band x loan-to-value band x loan age band). Design and measured results: [step4-simulation-design.md](step4-simulation-design.md).
+
+| Table | One row is... | Rows | Key columns |
+|---|---|---|---|
+| `lake.gold.loan_current_state` | one alive loan at 2026-03 | 8,881,641 | `loan_seq`, `source_quarter`, `as_of_month`, `current_upb`, `loan_age`, `remaining_months`, `current_rate`, `delinq_status`, `delinq_months`, `modification_flag`, `eltv`, `credit_score`, `ltv`, `cltv`, `dti`, `orig_upb`, `orig_term`, `orig_rate`, `state`, `occupancy`, `purpose`, `prop_type`, `credit_band`, `ltv_band`, `age_band` |
+| `lake.gold.default_hazard` | one segment | 48 | `default_exposure_months`, `default_events`, `monthly_default_rate` (move into 90+ days late); `cure_exposure_months`, `cures`, `monthly_cure_rate`; `thin`; `calibrated_at` |
+| `lake.gold.late_transition` | one segment | 48 | `late_months` (months that started 90+ days late), `loss_events`, `cures`, `other_exits`, `unknown_status`, `still_late` and their rates; `thin` |
+| `lake.gold.lgd_by_ltv` | one zero-balance code (or `all`) x LTV band | 20 | `loss_event_rows`, `rows_with_actual_loss`, `sum_actual_loss`, `sum_balance_of_rows_with_loss`, `rows_with_gain`, `loss_rate`, `median_loss_rate` |
+| `lake.gold.prepay_hazard` | one rate-gap bucket x age band (2022 onward) | 16 (15 + one "unknown" row to ignore) | `incentive_bucket`, `age_band`, `exposure_months`, `prepay_events`, `monthly_prepay_rate`, `thin`, `calibrated_from`, `calibrated_to` |
+| `lake.gold.reo_entry` | one age band x LTV band | 12 | `late_months`, `reo_entries`, `monthly_reo_entry_rate`, `thin` |
+| `lake.gold.reo_exit` | one count of months already in REO (1 to 24) | 24 | `exposure_months`, `sold`, `other_exit`, `left_reo`, `still_reo`, `monthly_sale_rate`, `thin` |
+| `lake.gold.sim_loan_result` | one alive loan x scenario (built quarter by quarter; only 2023Q1 so far) | 145,344 so far | `loan_seq`, `scenario`, `source_quarter`, `as_of_month`, `starting_state` (C, L, R), `credit_band`, `ltv_band`, `current_upb`, `expected_loss`, `prob_prepaid`, `prob_direct_loss`, `prob_reo`, `prob_other_exit`, `fingerprint`, `computed_at` |
+| `lake.gold.sim_manifest` | one scenario x origination quarter (the build ledger) | 1 so far | `fingerprint`, `as_of_month`, `input_loans`, `input_balance`, `loans_written`, `loan_months`, `expected_loss`, `seconds`, `status` |
+
+Definitions: **default event** = a loan's move into 90+ days late (`delinq_months` 3 or more, after under 3). **Loss event** = zero-balance code 02, 03, 09 or 15.
+**REO** = status `RA` (bank owns the property after foreclosure); the REO sale is code 09. **LGD** = share of the balance lost, `sum(actual_loss) / sum(zero_bal_removal_upb)`
+over rows that have an actual loss. Rows where the loss is negative are gains and are kept in the sums.
+
 ## The undocumented 35th performance column (`undocumented_amount`)
 
 Found because the alignment check failed on 2025Q4. Neither the January 2026 user guide nor Freddie's
@@ -162,7 +183,8 @@ Found because the alignment check failed on 2025Q4. Neither the January 2026 use
 
 ## Open questions
 
-- `undocumented_amount` and delinquency status `XX`: meaning unknown; check Freddie's newest release notes / file layout.
+- `undocumented_amount`: meaning unknown; check Freddie's newest release notes / file layout.
+- Delinquency status `XX`: inferred to be the first reporting month of a new loan (see the table above); confirm in Freddie's newest release notes / file layout.
 - `mi_cancellation_indicator_orig` is the constant `9999` in all 37 quarters (100% of the sampled rows): treated as an unused placeholder.
 - `payment_deferral_flag = 'C'` (5,694 sampled rows next to 162,927 `P`): meaning unconfirmed.
 - 4 orig loans have a `loan_seq` whose quarter differs by one from their file's quarter (for example `F20Q41275812` in the 2021Q1 file,

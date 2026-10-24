@@ -226,6 +226,18 @@ Each step has **one main job** that you run. Other files are **helpers** that th
 
 Rule of thumb: a file you start with `spark-submit ... /opt/spark-jobs/<name>.py` is a job. A file only imported by others (`columns.py`, `lake.py`, `silver_schema.py`) is a helper. *Added 2026-09-20.*
 
+### Q: Why save the simulation results one origination quarter at a time, with a ledger (manifest)? (asked)
+Five reasons:
+1. **Results must exist somewhere.** The engine first only computed numbers in memory. The reserve rollup, DBeaver queries and scenario comparisons all need a saved table, or every question means recomputing for about 90 minutes.
+2. **Long jobs can fail.** A 90-minute job can lose an executor or run out of memory (one 30-minute job here already lost one to a heartbeat timeout). In 37 chunks a failure loses at most one quarter, and a rerun continues from there.
+3. **It is the base of step 7 (recompute only what changed).** Each saved chunk carries a fingerprint of the exact hazards, scenario and as-of month behind it. If one hazard table changes, the fingerprint changes, and we know exactly which results are stale.
+4. **Traceability.** For a bank, "where does this reserve number come from?" is an audit question. The fingerprint answers it.
+5. **Step 6 needs a repeatable job.** An Airflow DAG must run the same job every quarter and skip what is already up to date.
+Trade-off: running the whole book in one job and writing once is simpler and gets a first number sooner, but a late failure loses everything and there is no resume. *Added 2026-09-26.*
+
+### Q: What is a fingerprint (in the simulation ledger)? (anticipated)
+A short label computed from everything that affects a result: the hazard numbers, the scenario settings and the as-of month. Two runs with the same fingerprint must give the same answer, so the second can be skipped. If any input changes, the fingerprint changes and the job recomputes only the chunks that carry the old one. It works like a "best before" stamp on each saved result. *Added 2026-09-26.*
+
 ---
 
 ## 6. CECL and the business problem
@@ -236,5 +248,27 @@ Rule of thumb: a file you start with `spark-submit ... /opt/spark-jobs/<name>.py
 ### Q: Why is this a scale problem and not just a big file? (anticipated)
 Each loan must be simulated **month by month** for up to 360 remaining months, once **per scenario**. Cells to compute = loans x remaining months x scenarios. With 15.0 million loans and 3 scenarios that reaches billions of cells, and it must be recomputed every quarter when the forecasts change. Adding scenarios multiplies the work, which is the engineering challenge. *Added 2026-09-20.*
 
+### Q: Why does the pipeline need to be a scheduled Airflow DAG at all? (asked)
+A real bank must recompute CECL **every quarter**: new loan performance data arrives and economic forecasts update, so the reserve has to be re-run on that cadence, not manually. A scheduled DAG automates that recompute instead of someone running 8 commands by hand each quarter.
+For this project there's no live data feed, so a schedule wouldn't actually trigger on anything new — the value is demonstrating the *capability* ("this could run quarterly in production"), not needing it to run unattended. Decision: manual-trigger DAG, same repeatability story, no surprise runs. *Added 2026-10-11.*
+
 ### Q: What is a "hazard" and what do prepay, default and pay mean? (anticipated)
 Each month a loan can go one of three ways: it **pays** as normal, it **prepays** (paid off early) or it **defaults**. The **hazard** is the probability of each outcome that month. It depends on the loan's traits (credit score, loan-to-value, rate) and on the economic scenario. Step 4 builds this for every loan. *Added 2026-09-20.*
+
+### Q: What is REO? (asked)
+**REO = Real Estate Owned.** A borrower stops paying for months, the bank forecloses (takes the house through the courts), and the bank now *owns* the property. It has to maintain and sell it.
+In the Freddie Mac data this stage is the delinquency status `RA` ("REO acquisition"), and the later sale is zero-balance code `09` ("REO disposition").
+Measured here: 6,868 loans reached REO, nearly all straight after being 90+ days late. They stayed about 8.9 months on average (median 8, 90th percentile 17, longest 68), and 5,151 ended in a sale. 1,652 were still in REO when the data ended. REO sales are also the costliest losses.
+Because of this delay, the simulation needs a REO state between "90+ days late" and the loss. *Added 2026-09-26.*
+
+### Q: What is LGD (loss given default)? (asked)
+**LGD = Loss Given Default**: when a loan defaults, the share of the balance the bank does **not** get back after selling the house and collecting insurance.
+Example: balance $200,000, net sale proceeds $170,000, so the loss is $30,000 and LGD is 15%.
+In the simulation: **expected loss = chance of default x balance x LGD**.
+Measured here (rows with an actual loss recorded): about 14.6% overall. It depends on how the loan ended: REO sales (code 09) lose roughly 17-33% depending on LTV band, third-party sales (code 02) roughly 6-9%. About 10% of loss rows are gains (the sale beat the balance). *Added 2026-09-26.*
+
+### Q: What is the "state machine" in the simulation? (anticipated)
+A loan is always in exactly one **state**, and each month it either stays or moves with some probability (its hazard). Ours: `current` -> `90+ days late` -> (`cured` back to current, or `direct loss` through codes 02/03/15, or `REO` -> `sold` through code 09), and `prepaid` is possible from any state. Each arrow gets a probability from our history tables, and each loss gets an LGD. Summing probability x balance x LGD over all months gives the expected loss. *Added 2026-09-26.*
+
+### Q: What is the "rate incentive" and why does it drive prepayment? (anticipated)
+It is the loan's interest rate minus today's market rate for a new mortgage. If your rate is 7% and new loans cost 6%, you can refinance and save, so many borrowers do (prepay). If your rate is 3% and the market is 6%, nobody refinances. We measured prepay per month of 0.45% for loans more than 0.5 points below the market, and 3.4% for loans 1-2 points above it. The data has no market-rate series, so we approximate it from the average rate of newly started loans. *Added 2026-09-26.*

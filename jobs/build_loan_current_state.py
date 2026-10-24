@@ -21,12 +21,16 @@ TABLE = "lake.gold.loan_current_state"
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--as-of", default="2026-03-01", help="the month we simulate from (decision D1)")
+    parser.add_argument("--suffix", default="", help="back-test mode: appended to the output table name")
     args = parser.parse_args()
     started = time.time()
+    table = TABLE + args.suffix
 
     spark = build_spark("build_loan_current_state")
     loans = spark.table("lake.silver.loans")
-    performance = spark.table("lake.silver.loan_performance")
+    # only use rows up to and including the as-of month, so an earlier as-of reflects what was known THEN,
+    # not the loan's latest-ever state. (Bug fix 2026-10-03: this filter was missing before.)
+    performance = spark.table("lake.silver.loan_performance").filter(F.col("report_period") <= F.lit(args.as_of).cast("date"))
 
     # each loan's latest row: the struct is compared by its first field, report_period
     latest = (performance.groupBy("loan_seq")
@@ -37,7 +41,7 @@ def main():
 
     alive = latest.filter(F.col("zero_bal_code").isNull() & (F.col("current_upb") > 0))
     stale = alive.filter(F.col("report_period") < F.lit(args.as_of).cast("date")).count()
-    print(f"alive loans whose latest row is older than {args.as_of}: {stale:,} (they are still included, see check)", flush=True)
+    print(f"alive loans whose latest row is older than {args.as_of} (gone quiet, still included): {stale:,}", flush=True)
 
     state = (alive.join(loans, "loan_seq")
                   .select("loan_seq", "source_quarter",
@@ -53,12 +57,12 @@ def main():
                   .sortWithinPartitions("loan_seq"))
 
     spark.sql("CREATE NAMESPACE IF NOT EXISTS lake.gold")
-    state.writeTo(TABLE).using("iceberg").tableProperty("format-version", "2").createOrReplace()
+    state.writeTo(table).using("iceberg").tableProperty("format-version", "2").createOrReplace()
 
-    written = spark.table(TABLE)
+    written = spark.table(table)
     rows = written.count()
     distinct = written.select("loan_seq").distinct().count()
-    print(f"\nwritten {TABLE}: {rows:,} rows | distinct loans: {distinct:,} | {time.time() - started:.0f}s", flush=True)
+    print(f"\nwritten {table}: {rows:,} rows | distinct loans: {distinct:,} | {time.time() - started:.0f}s", flush=True)
     written.agg(F.sum("current_upb").alias("total_balance"), F.sum("remaining_months").alias("remaining_months_total"),
                 F.min("as_of_month").alias("first_month"), F.max("as_of_month").alias("last_month")).show(truncate=False)
     print("loans per segment band:", flush=True)
