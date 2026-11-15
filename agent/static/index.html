@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CECL Portfolio Agent</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">C</div>
+        <div>
+          <h1>CECL Portfolio Agent</h1>
+          <p class="subtitle">Qwen3.8 &middot; tool-calling agent over a 15M-loan Freddie Mac simulation lake</p>
+        </div>
+      </div>
+      <button id="audit-toggle" class="ghost-btn">Audit log</button>
+    </header>
+
+    <main class="layout">
+      <section class="chat-panel">
+        <div id="messages" class="messages"></div>
+
+        <div id="thinking" class="thinking hidden">
+          <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+          <span id="thinking-label">Agent is thinking&hellip;</span>
+        </div>
+
+        <form id="chat-form" class="composer">
+          <input id="chat-input" type="text" autocomplete="off"
+                 placeholder="Ask about the portfolio, explain a scenario, or propose a simulation run&hellip;" />
+          <button type="submit">Send</button>
+        </form>
+      </section>
+
+      <aside id="audit-drawer" class="audit-drawer hidden">
+        <div class="audit-header">
+          <h2>Audit log</h2>
+          <button id="audit-refresh" class="ghost-btn small">Refresh</button>
+        </div>
+        <div id="audit-list" class="audit-list"></div>
+      </aside>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CECL Loss Engine Architecture</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  html, body { margin: 0; background: #05070b; }
+  body { display: flex; justify-content: center; padding: 40px 16px; }
+  .card{padding:16px;box-sizing:border-box;background:#11151f;border:1px solid #242b3d;border-radius:12px;font-family:'Inter',system-ui,sans-serif;color:#e7eaf3;overflow:hidden}
+  .card b{font-size:14px;display:block;margin-bottom:6px;font-weight:600}
+  .card .sub{font-size:11.5px;color:#8b93a7;line-height:1.45;display:block}
+  .badge-confirm{display:inline-block;background:#f5b942;color:#1a1200;padding:3px 8px;border-radius:5px;font-size:9.5px;font-weight:700;letter-spacing:0.3px;margin-top:7px}
+  .eyebrow{font-family:'Inter',system-ui,sans-serif;font-size:12px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase}
+  .pill{box-sizing:border-box;background:#161b28;border:1px solid #242b3d;border-radius:999px;font-family:'Inter',system-ui,sans-serif;font-size:11.5px;color:#aab2c5;display:flex;align-items:center;justify-content:center}
+</style>
+</head>
+<body>
+<div style="position: relative; width: 1600px; height: 1120px; background: #0b0e14; font-family: 'Inter', system-ui, sans-serif; flex-shrink: 0">
+
+<!-- ===== ARROWS ===== -->
+
+<svg role="img" aria-label="From Freddie Mac Loan-Level Data down to Bronze" width="8" height="70" viewBox="0 0 8 70" preserveAspectRatio="none" style="position: absolute; left: 256px; top: 266px; width: 8px; height: 70px; overflow: visible; fill: none; stroke: #6c8dff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round"><defs><marker id="dc-arrow-head-filled-1" orient="auto" markerWidth="5" markerHeight="5" refX="2" refY="2" overflow="visible"><path d="M0 0 L4 2 L0 4 Z" fill="#6c8dff" stroke="none" style="stroke: none; fill: #6c8dff; fill: context-stroke"/></marker></defs><path d="M 4 0 L 4 66" marker-end="url(#dc-arrow-head-filled-1)"></path></svg>
+
+<svg role="img" aria-label="From Bronze to Silver" width="40" height="8" viewBox="0 0 40 8" preserveAspectRatio="none" style="position: absolute; left: 420px; top: 391px; width: 40px; height: 8px; overflow: visible; fill: none; stroke: #6c8dff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round"><defs><marker id="dc-arrow-head-filled-2" orient="auto" markerWidth="5" markerHeight="5" refX="2" refY="2" overflow="visible"><path d="M0 0 L4 2 L0 4 Z" fill="#6c8dff" stroke="none" style="stroke: none; fill: #6c8dff; fill: context-stroke"/></marker></defs><path d="M 0 4 L 36 4" marker-end="url(#dc-arrow-head-filled-2)"></path></svg>
+
+<svg role="img" aria-label="From Silver to Gold" width="40" height="8" viewBox="0 0 40 8" preserveAspectRatio="none" style="position: absolute; left: 780px; top: 391px; width: 40px; height: 8px; overflow: visible; fill: none; stroke: #6c8dff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round"><defs><marker id="dc-arrow-head-filled-3" orient="auto" markerWidth="5" markerHeight="5" refX="2" refY="2" overflow="visible"><path d="M0 0 L4 2 L0 4 Z" fill="#6c8dff" stroke="none" style="stroke: none; fill: #6c8dff; fill: context-stroke"/></marker></defs><path d="M 0 4 L 36 4" marker-end="url(#dc-arrow-head-filled-3)"></path></svg>
+
+<svg role="img" aria-label="From Gold to Portfolio Reserve" width="40" height="8" viewBox="0 0 40 8" preserveAspectRatio="none" style="position: absolute; left: 1140px; top: 391px; width: 40px; height: 8px; overflow: visible; fill: none; stroke: #6c8dff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round"><defs><marker id="dc-arrow-head-filled-4" orient="auto" markerWidth="5" markerHeight="5" refX="2" refY="2" overflow="visible"><path d="M0 0 L4 2 L0 4 Z" fill="#6c8dff" stroke="none" style="stroke: none; fill: #6c8dff; fill: context-stroke"/></marker></defs><path d="M 0 4 L 36 4" marker-end="url(#dc-arrow-head-filled-4)"></path></svg>
+
+<svg aria-hidden="true" width="8" height="128" viewBox="0 0 8 128" preserveAspectRatio="none" style="position: absolute; left: 1336px; top: 454px; width: 8px; height: 128px; overflow: visible; fill: none; stroke: #9b7bff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round"><path d="M 4 0 L 4 128"></path></svg>
+
+<svg aria-hidden="true" width="1100" height="8" viewBox="0 0 1100 8" preserveAspectRatio="none" style="position: absolute; left: 240px; top: 578px; width: 1100px; height: 8px; overflow: visible; fill: none; stroke: #9b7bff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round"><path d="M 0 4 L 1100 4"></path></svg>
+
+<svg role="img" aria-label="From Portfolio Reserve down to the Qwen3.8 Agent, which reads gold tables and proposes simulation runs" width="8" height="140" viewBox="0 0 8 140" preserveAspectRatio="none" style="position: absolute; left: 236px; top: 582px; width: 8px; height: 140px; overflow: visible; fill: none; stroke: #9b7bff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round"><defs><marker id="dc-arrow-head-filled-5" orient="auto" markerWidth="5" markerHeight="5" refX="2" refY="2" overflow="visible"><path d="M0 0 L4 2 L0 4 Z" fill="#9b7bff" stroke="none" style="stroke: none; fill: #9b7bff; fill: context-stroke"/></marker></defs><path d="M 4 0 L 4 136" marker-end="url(#dc-arrow-head-filled-5)"></path></svg>
+
+<svg aria-hidden="true" width="35" height="8" viewBox="0 0 35 8" preserveAspectRatio="none" style="position: absolute; left: 360px; top: 770px; width: 35px; height: 8px; overflow: visible; fill: none; stroke: #9b7bff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round"><path d="M 0 4 L 35 4"></path></svg>
+
+<svg aria-hidden="true" width="8" height="184" viewBox="0 0 8 184" preserveAspectRatio="none" style="position: absolute; left: 391px; top: 682px; width: 8px; height: 184px; overflow: visible; fill: none; stroke: #9b7bff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round"><path d="M 4 0 L 4 184"></path></svg>
+
+<svg role="img" aria-label="From the Qwen3.8 Agent to the SQL Query tool" width="35" height="8" viewBox="0 0 35 8" preserveAspectRatio="none" style="position: absolute; left: 395px; top: 678px; width: 35px; height: 8px; overflow: visible; fill: none; stroke: #9b7bff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round"><defs><marker id="dc-arrow-head-filled-6" orient="auto" markerWidth="5" markerHeight="5" refX="2" refY="2" overflow="visible"><path d="M0 0 L4 2 L0 4 Z" fill="#9b7bff" stroke="none" style="stroke: none; fill: #9b7bff; fill: context-stroke"/></marker></defs><path d="M 0 4 L 31 4" marker-end="url(#dc-arrow-head-filled-6)"></path></svg>
+
+<svg role="img" aria-label="From the Qwen3.8 Agent to the Explain Scenario tool" width="35" height="8" viewBox="0 0 35 8" preserveAspectRatio="none" style="position: absolute; left: 395px; top: 770px; width: 35px; height: 8px; overflow: visible; fill: none; stroke: #9b7bff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round"><defs><marker id="dc-arrow-head-filled-7" orient="auto" markerWidth="5" markerHeight="5" refX="2" refY="2" overflow="visible"><path d="M0 0 L4 2 L0 4 Z" fill="#9b7bff" stroke="none" style="stroke: none; fill: #9b7bff; fill: context-stroke"/></marker></defs><path d="M 0 4 L 31 4" marker-end="url(#dc-arrow-head-filled-7)"></path></svg>
+
+<svg role="img" aria-label="From the Qwen3.8 Agent to the Run Simulation tool" width="35" height="8" viewBox="0 0 35 8" preserveAspectRatio="none" style="position: absolute; left: 395px; top: 862px; width: 35px; height: 8px; overflow: visible; fill: none; stroke: #9b7bff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round"><defs><marker id="dc-arrow-head-filled-8" orient="auto" markerWidth="5" markerHeight="5" refX="2" refY="2" overflow="visible"><path d="M0 0 L4 2 L0 4 Z" fill="#9b7bff" stroke="none" style="stroke: none; fill: #9b7bff; fill: context-stroke"/></marker></defs><path d="M 0 4 L 31 4" marker-end="url(#dc-arrow-head-filled-8)"></path></svg>
+
+<svg role="img" aria-label="From the Qwen3.8 Agent down to the FastAPI backend" width="8" height="116" viewBox="0 0 8 116" preserveAspectRatio="none" style="position: absolute; left: 236px; top: 826px; width: 8px; height: 116px; overflow: visible; fill: none; stroke: #9b7bff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round"><defs><marker id="dc-arrow-head-filled-9" orient="auto" markerWidth="5" markerHeight="5" refX="2" refY="2" overflow="visible"><path d="M0 0 L4 2 L0 4 Z" fill="#9b7bff" stroke="none" style="stroke: none; fill: #9b7bff; fill: context-stroke"/></marker></defs><path d="M 4 0 L 4 112" marker-end="url(#dc-arrow-head-filled-9)"></path></svg>
+
+<svg role="img" aria-label="From the FastAPI backend to the Web Chat UI" width="70" height="8" viewBox="0 0 70 8" preserveAspectRatio="none" style="position: absolute; left: 360px; top: 980px; width: 70px; height: 8px; overflow: visible; fill: none; stroke: #9b7bff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round"><defs><marker id="dc-arrow-head-filled-10" orient="auto" markerWidth="5" markerHeight="5" refX="2" refY="2" overflow="visible"><path d="M0 0 L4 2 L0 4 Z" fill="#9b7bff" stroke="none" style="stroke: none; fill: #9b7bff; fill: context-stroke"/></marker></defs><path d="M 0 4 L 66 4" marker-end="url(#dc-arrow-head-filled-10)"></path></svg>
+
+<!-- ===== CARDS ===== -->
+
+<div class="card" style="position: absolute; left: 80px; top: 190px; width: 360px; height: 76px; box-sizing: border-box"><b>Freddie Mac Loan-Level Data</b><span class="sub">15.0M loans &middot; 644M loan-months &middot; 37 quarters (2016&ndash;2026)</span></div>
+
+<div class="card" style="position: absolute; left: 100px; top: 336px; width: 320px; height: 118px; box-sizing: border-box"><b>BRONZE &mdash; Raw Parquet</b><span class="sub">Resumable ingest &middot; every quarter's row count verified against the source text</span></div>
+
+<div class="card" style="position: absolute; left: 460px; top: 336px; width: 320px; height: 118px; box-sizing: border-box"><b>SILVER &mdash; Apache Iceberg</b><span class="sub">loans &middot; loan_performance tables &middot; 18 automated verification checks passed</span></div>
+
+<div class="card" style="position: absolute; left: 820px; top: 336px; width: 320px; height: 118px; box-sizing: border-box"><b>GOLD &mdash; Hazard Models</b><span class="sub">loan_current_state &middot; default/prepay/REO hazard tables &middot; sim_loan_result &middot; sim_manifest</span></div>
+
+<div class="card" style="position: absolute; left: 1180px; top: 336px; width: 320px; height: 118px; box-sizing: border-box"><b>PORTFOLIO RESERVE</b><span class="sub">Baseline 0.060% &middot; Adverse 0.069% &middot; Severely adverse 0.087% of balance</span></div>
+
+<div class="card" style="position: absolute; left: 120px; top: 722px; width: 240px; height: 104px; box-sizing: border-box"><b>Qwen3.8 Agent</b><span class="sub">OpenAI-compatible tool-calling &middot; self-hosted on AWS &middot; grounded in the real schema</span></div>
+
+<div class="card" style="position: absolute; left: 430px; top: 646px; width: 280px; height: 72px; box-sizing: border-box"><b>SQL Query</b><span class="sub">Read-only &middot; SELECT-only, validated against the lake's real gold tables</span></div>
+
+<div class="card" style="position: absolute; left: 430px; top: 738px; width: 280px; height: 72px; box-sizing: border-box"><b>Explain Scenario</b><span class="sub">Code-authored segment breakdown &mdash; the model only narrates real numbers</span></div>
+
+<div class="card" style="position: absolute; left: 430px; top: 830px; width: 280px; height: 72px; box-sizing: border-box"><b>Run Simulation</b><span class="sub">Proposes a dry-run plan</span><span class="badge-confirm">CONFIRM REQUIRED</span></div>
+
+<div class="card" style="position: absolute; left: 120px; top: 942px; width: 240px; height: 84px; box-sizing: border-box"><b>FastAPI Backend</b><span class="sub">/api/chat &middot; /api/confirm &middot; background runner for long Spark jobs</span></div>
+
+<div class="card" style="position: absolute; left: 430px; top: 924px; width: 360px; height: 120px; box-sizing: border-box"><b>Web Chat UI</b><span class="sub">Dark, modern chat &middot; results tables &middot; bar charts &middot; confirm/cancel cards &middot; audit-log drawer</span></div>
+
+<!-- ===== LABELS ===== -->
+
+<div style="position: absolute; left: 80px; top: 64px; width: 900px; height: 42px; font-size: 32px; font-weight: 700; color: #e7eaf3">CECL Loss Simulation Engine</div>
+
+<div style="position: absolute; left: 80px; top: 110px; width: 900px; height: 20px; font-size: 14px; color: #8b93a7">Freddie Mac mortgage data, simulated end-to-end at scale &mdash; now with an LLM agent on top</div>
+
+<div class="pill" style="position: absolute; left: 80px; top: 140px; width: 250px; height: 26px">15.0M loans &middot; 644M loan-months</div>
+<div class="pill" style="position: absolute; left: 342px; top: 140px; width: 270px; height: 26px">2.50B simulated loan-months / scenario</div>
+<div class="pill" style="position: absolute; left: 624px; top: 140px; width: 220px; height: 26px">~37x faster incremental rerun</div>
+
+<div class="eyebrow" style="position: absolute; left: 1000px; top: 310px; width: 300px; height: 18px; color: #6c8dff">DATA LAKE &middot; MinIO + Apache Iceberg</div>
+
+<div style="position: absolute; left: 100px; top: 484px; width: 760px; height: 44px; font-size: 13.5px; line-height: 1.5; color: #8b93a7">Built and orchestrated by Apache Spark (distributed engine &mdash; powers every lake build and the 2.5B-loan-month simulation) and Apache Airflow (resumable 9-task pipeline DAG).</div>
+
+<div class="eyebrow" style="position: absolute; left: 80px; top: 542px; width: 300px; height: 18px; color: #9b7bff">AGENTIC AI LAYER &mdash; NEW</div>
+
+</div>
+</body>
+</html>

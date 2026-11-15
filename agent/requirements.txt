@@ -1,0 +1,8 @@
+openai>=1.40
+pyhive==0.7.0
+thrift==0.16.0
+thrift_sasl>=0.4.3
+sqlparse>=0.5
+fastapi>=0.110
+uvicorn[standard]>=0.29
+python-dotenv>=1.0
